@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -14,22 +14,67 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Set api_id
+      - name: Patch API ID
         run: |
-          find . -type f -name "*.json" -exec sed -i '' 's/"api_id": [0-9]*/"api_id": 31594520/g' {} \;
+          # Только файл конфигурации, не трогаем versions.json и другие служебные JSON
+          sed -i '' 's/"api_id": [0-9]*/"api_id": 31594520/g' \
+            build-system/template_minimal_development_configuration.json
 
       - name: Install Bazelisk
         run: |
           brew install bazelisk
-          # Создаём подставной файл, чтобы обойти проверку
+
+      - name: Symlink bazelisk as bazel
+        run: |
+          # Make.py ищет bazel в build-input/ по имени bazel-X.Y.Z-darwin-arm64
+          # Обходим это: подкладываем реальный бинарь через симлинк
           mkdir -p build-input
-          touch build-input/bazel-8.4.2-darwin-arm64
-          chmod +x build-input/bazel-8.4.2-darwin-arm64
+          BAZEL_VERSION=$(python3 -c "
+          import json
+          v = json.load(open('versions.json'))['bazel']
+          print(v.split(':')[0])
+          ")
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "arm64" ]; then
+            PLATFORM="darwin-arm64"
+          else
+            PLATFORM="darwin-x86_64"
+          fi
+          BAZEL_NAME="bazel-${BAZEL_VERSION}-${PLATFORM}"
+          # Скачиваем напрямую и кладём в build-input
+          curl -L \
+            "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/${BAZEL_NAME}" \
+            -o "build-input/${BAZEL_NAME}"
+          chmod +x "build-input/${BAZEL_NAME}"
+          # Записываем реальный SHA256 в versions.json
+          REAL_SHA=$(shasum -a 256 "build-input/${BAZEL_NAME}" | awk '{print $1}')
+          echo "Real SHA256: $REAL_SHA"
+          python3 - <<EOF
+          import json
+          with open('versions.json', 'r') as f:
+              data = json.load(f)
+          bazel_ver = data['bazel'].split(':')[0]
+          data['bazel'] = f"{bazel_ver}:{REAL_SHA}"  # <-- заменить при первом запуске
+          with open('versions.json', 'w') as f:
+              json.dump(data, f, indent=4)
+          EOF
+          python3 -c "
+          import json, os, subprocess
+          with open('versions.json') as f:
+              data = json.load(f)
+          bazel_raw = data['bazel']
+          ver = bazel_raw.split(':')[0]
+          arch = 'darwin-arm64' if subprocess.run(['uname','-m'],capture_output=True,text=True).stdout.strip()=='arm64' else 'darwin-x86_64'
+          name = f'bazel-{ver}-{arch}'
+          real_sha = subprocess.run(['shasum','-a','256',f'build-input/{name}'],capture_output=True,text=True).stdout.split()[0]
+          data['bazel'] = f'{ver}:{real_sha}'
+          with open('versions.json','w') as f:
+              json.dump(data, f, indent=4)
+          print('versions.json updated:', data['bazel'])
+          "
 
       - name: Generate Xcode project
         run: |
-          # Используем системный bazelisk вместо скачивания
-          export BAZEL_PATH=$(which bazelisk)
           python3 build-system/Make/Make.py \
             --cacheDir="$HOME/bazel-cache" \
             --overrideXcodeVersion \
@@ -38,26 +83,36 @@ jobs:
             --xcodeManagedCodesigning \
             --disableProvisioningProfiles
 
-      - name: Build IPA
+      - name: Build archive
         run: |
-          xcodebuild -project Telegram.xcodeproj \
+          # Находим сгенерированный xcodeproj
+          XCODEPROJ=$(find . -name "*.xcodeproj" -maxdepth 2 | head -1)
+          echo "Using project: $XCODEPROJ"
+          xcodebuild \
+            -project "$XCODEPROJ" \
             -scheme Telegram \
             -sdk iphoneos \
             -configuration Release \
-            -archivePath ghostgram.xcarchive \
+            -archivePath "$PWD/ghostgram.xcarchive" \
             archive \
-            CODE_SIGNING_ALLOWED="NO" \
-            CODE_SIGNING_REQUIRED="NO" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            EXPANDED_CODE_SIGN_IDENTITY="" \
             -allowProvisioningUpdates
 
       - name: Create IPA
         run: |
+          APP_PATH=$(find ghostgram.xcarchive -name "*.app" | head -1)
+          echo "App path: $APP_PATH"
           mkdir -p Payload
-          cp -r ghostgram.xcarchive/Products/Applications/Telegram.app Payload/
+          cp -r "$APP_PATH" Payload/
           zip -r Ghostgram.ipa Payload/
+          echo "IPA size: $(du -sh Ghostgram.ipa)"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Ghostgram_unsigned
           path: Ghostgram.ipa
+          retention-days: 7
