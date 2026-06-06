@@ -20,7 +20,7 @@ jobs:
           {
             "bundle_id": "org.ghostgram.Telegram",
             "api_id": "31594520",
-            "api_hash": "placeholder",
+            "api_hash": "ae0b6c1dbcf117dd791bb993f8e33df9",
             "team_id": "PLACEHOLDER",
             "app_center_id": "0",
             "is_internal_build": "true",
