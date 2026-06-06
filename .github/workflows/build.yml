@@ -37,6 +37,30 @@ jobs:
         run: |
           echo "common --enable_workspace=true" >> .bazelrc
 
+      - name: Patch BUILD - remove provisioning profile requirement
+        run: |
+          python3 - << 'EOF'
+          import re
+
+          with open('Telegram/BUILD', 'r') as f:
+              content = f.read()
+
+          content = re.sub(
+              r'provisioning_profile\s*=\s*select\(\{[^}]+\}\s*,\s*[^)]+\)\s*,',
+              'provisioning_profile = None,',
+              content
+          )
+
+          with open('Telegram/BUILD', 'w') as f:
+              f.write(content)
+
+          print("BUILD patched successfully")
+          import subprocess
+          result = subprocess.run(['grep', '-n', 'provisioning_profile', 'Telegram/BUILD'],
+                                  capture_output=True, text=True)
+          print(result.stdout)
+          EOF
+
       - name: Install Bazelisk
         run: brew install bazelisk
 
@@ -90,32 +114,6 @@ jobs:
             --xcodeManagedCodesigning \
             --disableProvisioningProfiles \
             --disableExtensions
-
-      - name: Create self-signed certificate
-        run: |
-          # Создаём временный самоподписанный сертификат для сборки
-          openssl req -x509 -newkey rsa:2048 -keyout /tmp/fake.key \
-            -out /tmp/fake.crt -days 1 -nodes \
-            -subj "/CN=iPhone Developer/O=Ghostgram/C=US"
-
-          # Создаём p12
-          openssl pkcs12 -export \
-            -out /tmp/fake.p12 \
-            -inkey /tmp/fake.key \
-            -in /tmp/fake.crt \
-            -passout pass:1234
-
-          # Импортируем в keychain
-          security create-keychain -p "" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-          security import /tmp/fake.p12 \
-            -k build.keychain \
-            -P 1234 \
-            -T /usr/bin/codesign
-          security set-key-partition-list \
-            -S apple-tool:,apple: \
-            -s -k "" build.keychain
 
       - name: Build IPA
         run: |
