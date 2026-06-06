@@ -1010,10 +1010,7 @@ ios_extension(
         ":AppNameInfoPlist",
     ],
     minimum_os_version = minimum_os_version,
-    provisioning_profile = select({
-        ":disableProvisioningProfilesSetting": None,
-        "//conditions:default": "@build_configuration//provisioning:Share.mobileprovision",
-    }),
+    provisioning_profile = None,
     deps = [":ShareExtensionLib"],
     frameworks = [
         ":TelegramUIFramework"
@@ -1117,10 +1114,7 @@ ios_extension(
     ],
     minimum_os_version = minimum_os_version, # maintain the same minimum OS version across extensions
     #ipa_post_processor = ":SetMinOsVersionNotificationContentExtension",
-    provisioning_profile = select({
-        ":disableProvisioningProfilesSetting": None,
-        "//conditions:default": "@build_configuration//provisioning:NotificationContent.mobileprovision",
-    }),
+    provisioning_profile = None,
     deps = [":NotificationContentExtensionLib"],
     frameworks = [
         ":TelegramUIFramework"
@@ -1223,10 +1217,7 @@ ios_extension(
     minimum_os_version = minimum_os_version, # maintain the same minimum OS version across extensions
     ipa_post_processor = ":SetMinOsVersionWidgetExtension",
     #provides_main = True,
-    provisioning_profile = select({
-        ":disableProvisioningProfilesSetting": None,
-        "//conditions:default": "@build_configuration//provisioning:Widget.mobileprovision",
-    }),
+    provisioning_profile = None,
     deps = [
         ":WidgetExtensionLib",
     ],
@@ -1359,10 +1350,7 @@ ios_extension(
     ],
     minimum_os_version = minimum_os_version, # maintain the same minimum OS version across extensions
     #ipa_post_processor = ":SetMinOsVersionIntentsExtension",
-    provisioning_profile = select({
-        ":disableProvisioningProfilesSetting": None,
-        "//conditions:default": "@build_configuration//provisioning:Intents.mobileprovision",
-    }),
+    provisioning_profile = None,
     deps = [":IntentsExtensionLib"],
     frameworks = [
         ":SwiftSignalKitFramework",
@@ -1454,10 +1442,7 @@ ios_extension(
     ],
     minimum_os_version = minimum_os_version, # maintain the same minimum OS version across extensions
     #ipa_post_processor = ":SetMinOsVersionBroadcastUploadExtension",
-    provisioning_profile = select({
-        ":disableProvisioningProfilesSetting": None,
-        "//conditions:default": "@build_configuration//provisioning:BroadcastUpload.mobileprovision",
-    }),
+    provisioning_profile = None,
     deps = [":BroadcastUploadExtensionLib"],
     frameworks = [
         ":TelegramUIFramework",
@@ -1514,10 +1499,7 @@ ios_extension(
         ":AppNameInfoPlist",
     ],
     minimum_os_version = minimum_os_version, # maintain the same minimum OS version across extensions
-    provisioning_profile = select({
-        ":disableProvisioningProfilesSetting": None,
-        "//conditions:default": "@build_configuration//provisioning:NotificationService.mobileprovision",
-    }),
+    provisioning_profile = None,
     deps = ["//Telegram/NotificationService:NotificationServiceExtensionLib"],
     frameworks = [
         ":MtProtoKitFramework",
@@ -1724,10 +1706,7 @@ ios_application(
     ),
     families = ["iphone", "ipad"],
     minimum_os_version = minimum_os_version,
-    provisioning_profile = select({
-        ":disableProvisioningProfilesSetting": None,
-        "//conditions:default": ":Telegram_xcode_profile" if telegram_use_xcode_managed_codesigning else "@build_configuration//provisioning:Telegram.mobileprovision",
-    }),
+    provisioning_profile = None,
     entitlements = ":TelegramEntitlements.entitlements",
     infoplists = [
         ":TelegramInfoPlist",
@@ -1781,7 +1760,7 @@ xcodeproj(
         labels = [
             ":Telegram",
         ],
-        target_environments = ["device", "simulator"],
+        target_environments = ["simulator"],
     ),
     xcode_configurations = {
         "Debug": {
@@ -1803,10 +1782,7 @@ ios_application(
     ),
     families = ["iphone", "ipad"],
     minimum_os_version = minimum_os_version,
-    provisioning_profile = select({
-        ":disableProvisioningProfilesSetting": None,
-        "//conditions:default": "@build_configuration//provisioning:Telegram.mobileprovision",
-    }),
+    provisioning_profile = None,
     entitlements = ":TelegramEntitlements.entitlements",
     infoplists = [
         ":TelegramInfoPlist",
@@ -1846,10 +1822,7 @@ ios_application(
     ),
     families = ["iphone", "ipad"],
     minimum_os_version = minimum_os_version,
-    provisioning_profile = select({
-        ":disableProvisioningProfilesSetting": None,
-        "//conditions:default": "@build_configuration//provisioning:Telegram.mobileprovision",
-    }),
+    provisioning_profile = None,
     entitlements = ":TelegramEntitlements.entitlements",
     infoplists = [
         ":TelegramInfoPlist",
@@ -1871,10 +1844,7 @@ ios_application(
     ),
     families = ["iphone", "ipad"],
     minimum_os_version = minimum_os_version,
-    provisioning_profile = select({
-        ":disableProvisioningProfilesSetting": None,
-        "//conditions:default": "@build_configuration//provisioning:Telegram.mobileprovision",
-    }),
+    provisioning_profile = None,
     entitlements = ":TelegramEntitlements.entitlements",
     infoplists = [
         ":TelegramInfoPlist",
