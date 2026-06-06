@@ -14,10 +14,24 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Patch API ID
+      - name: Write build configuration
         run: |
-          sed -i '' 's/"api_id": [0-9]*/"api_id": 31594520/g' \
-            build-system/template_minimal_development_configuration.json
+          cat > build-system/template_minimal_development_configuration.json << 'EOF'
+          {
+            "bundle_id": "org.ghostgram.Telegram",
+            "api_id": "31594520",
+            "api_hash": "placeholder",
+            "team_id": "PLACEHOLDER",
+            "app_center_id": "0",
+            "is_internal_build": "true",
+            "is_appstore_build": "false",
+            "appstore_id": "0",
+            "app_specific_url_scheme": "tg",
+            "premium_iap_product_id": "",
+            "enable_siri": false,
+            "enable_icloud": false
+          }
+          EOF
 
       - name: Install Bazelisk
         run: brew install bazelisk
@@ -48,7 +62,6 @@ jobs:
           REAL_SHA=$(shasum -a 256 "build-input/${BAZEL_NAME}" | awk '{print $1}')
           echo "Real SHA256: $REAL_SHA"
 
-          # Патчим versions.json через python3, передавая SHA как аргумент
           python3 -c "
           import json, sys
           sha = sys.argv[1]
