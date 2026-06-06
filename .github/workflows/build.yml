@@ -28,6 +28,7 @@ jobs:
             --cacheDir="$HOME/bazel-cache" \
             generateProject \
             --configurationPath=build-system/template_minimal_development_configuration.json \
+            --xcodeManagedCodesigning \
             --disableProvisioningProfiles
 
       - name: Build IPA
