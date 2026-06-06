@@ -21,11 +21,14 @@ jobs:
       - name: Install Bazel
         run: |
           brew install bazelisk
+          # Создаём симлинк, чтобы скрипт нашёл bazel
+          sudo ln -sf $(which bazelisk) /usr/local/bin/bazel
 
       - name: Generate Xcode project
         run: |
           python3 build-system/Make/Make.py \
             --cacheDir="$HOME/bazel-cache" \
+            --overrideXcodeVersion \
             generateProject \
             --configurationPath=build-system/template_minimal_development_configuration.json \
             --xcodeManagedCodesigning \
