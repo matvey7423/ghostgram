@@ -37,30 +37,6 @@ jobs:
         run: |
           echo "common --enable_workspace=true" >> .bazelrc
 
-      - name: Patch BUILD - remove provisioning profile requirement
-        run: |
-          python3 - << 'EOF'
-          import re
-
-          with open('Telegram/BUILD', 'r') as f:
-              content = f.read()
-
-          content = re.sub(
-              r'provisioning_profile\s*=\s*select\(\{[^}]+\}\s*,\s*[^)]+\)\s*,',
-              'provisioning_profile = None,',
-              content
-          )
-
-          with open('Telegram/BUILD', 'w') as f:
-              f.write(content)
-
-          print("BUILD patched successfully")
-          import subprocess
-          result = subprocess.run(['grep', '-n', 'provisioning_profile', 'Telegram/BUILD'],
-                                  capture_output=True, text=True)
-          print(result.stdout)
-          EOF
-
       - name: Install Bazelisk
         run: brew install bazelisk
 
@@ -82,9 +58,7 @@ jobs:
           mkdir -p build-input
 
           echo "Downloading $BAZEL_NAME..."
-          curl -L \
-            "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/${BAZEL_NAME}" \
-            -o "build-input/${BAZEL_NAME}"
+          curl -L             "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/${BAZEL_NAME}"             -o "build-input/${BAZEL_NAME}"
           chmod +x "build-input/${BAZEL_NAME}"
 
           REAL_SHA=$(shasum -a 256 "build-input/${BAZEL_NAME}" | awk '{print $1}')
@@ -106,42 +80,41 @@ jobs:
 
       - name: Generate Xcode project
         run: |
-          python3 build-system/Make/Make.py \
-            --cacheDir="$HOME/bazel-cache" \
-            --overrideXcodeVersion \
-            generateProject \
-            --configurationPath=build-system/template_minimal_development_configuration.json \
-            --xcodeManagedCodesigning \
-            --disableProvisioningProfiles \
-            --disableExtensions
+          python3 build-system/Make/Make.py             --cacheDir="$HOME/bazel-cache"             --overrideXcodeVersion             generateProject             --configurationPath=build-system/template_minimal_development_configuration.json             --xcodeManagedCodesigning             --disableProvisioningProfiles             --disableExtensions
 
-      - name: Build IPA
+      - name: Build IPA via Bazel
         run: |
-          XCODEPROJ=$(find . -name "*.xcodeproj" -maxdepth 3 | head -1)
-          echo "Using project: $XCODEPROJ"
+          BAZEL_VERSION=$(python3 -c "
+          import json
+          v = json.load(open('versions.json'))['bazel']
+          print(v.split(':')[0])
+          ")
+          if [ "$(uname -m)" = "arm64" ]; then
+            PLATFORM="darwin-arm64"
+          else
+            PLATFORM="darwin-x86_64"
+          fi
+          BAZEL="build-input/bazel-${BAZEL_VERSION}-${PLATFORM}"
 
-          xcodebuild \
-            -project "$XCODEPROJ" \
-            -scheme Telegram \
-            -sdk iphoneos \
-            -configuration Release \
-            -archivePath "$PWD/ghostgram.xcarchive" \
-            archive \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            EXPANDED_CODE_SIGN_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER=""
+          $BAZEL build //Telegram:Telegram             --//Telegram:disableExtensions             --//Telegram:disableProvisioningProfiles             --//Telegram:disableStripping             --ios_multi_cpus=arm64             --apple_platform_type=ios             -c opt             --output_groups=+archive             --verbose_failures
 
-      - name: Create IPA
+      - name: Find and package IPA
         run: |
-          APP_PATH=$(find ghostgram.xcarchive -name "*.app" | head -1)
-          echo "App path: $APP_PATH"
-          mkdir -p Payload
-          cp -r "$APP_PATH" Payload/
-          zip -r Ghostgram.ipa Payload/
+          echo "Searching for .ipa or .app..."
+          find bazel-bin -name "*.ipa" 2>/dev/null || true
+          find bazel-bin -name "*.app" 2>/dev/null | head -5 || true
+
+          IPA_PATH=$(find bazel-bin -name "*.ipa" | head -1)
+          if [ -n "$IPA_PATH" ]; then
+            cp "$IPA_PATH" Ghostgram.ipa
+            echo "Found IPA: $IPA_PATH"
+          else
+            APP_PATH=$(find bazel-bin -name "Telegram.app" | head -1)
+            echo "Found .app: $APP_PATH"
+            mkdir -p Payload
+            cp -r "$APP_PATH" Payload/
+            zip -r Ghostgram.ipa Payload/
+          fi
           echo "IPA size: $(du -sh Ghostgram.ipa)"
 
       - name: Upload IPA
