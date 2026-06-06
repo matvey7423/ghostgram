@@ -33,6 +33,10 @@ jobs:
           }
           EOF
 
+      - name: Patch .bazelrc for Bazel 8
+        run: |
+          echo "common --enable_workspace=true" >> .bazelrc
+
       - name: Install Bazelisk
         run: brew install bazelisk
 
